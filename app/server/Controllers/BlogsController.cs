@@ -2,6 +2,7 @@ using System.Security.Claims;
 using ApexBlog.Api.Contracts;
 using ApexBlog.Api.Data;
 using ApexBlog.Api.Models;
+using ApexBlog.Api.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -10,9 +11,81 @@ namespace ApexBlog.Api.Controllers;
 
 [ApiController]
 [Route("api/blogs")]
-public sealed class BlogsController(AppDbContext dbContext) : ControllerBase
+public sealed class BlogsController(AppDbContext dbContext, BlogLogicService blogLogicService) : ControllerBase
 {
     private static readonly string[] AllowedEmojis = ["👍", "❤️", "😂", "🎉", "🔥", "👏"];
+
+    [Authorize]
+    [HttpGet("mine")]
+    public async Task<ActionResult<object>> GetMyBlogs([FromQuery] int limit = 50)
+    {
+        var user = await ResolveUser();
+        if (user is null) return Unauthorized(new { error = "Unauthorized" });
+        if (!user.IsAdmin) return StatusCode(StatusCodes.Status403Forbidden, new { error = "Only administrators can manage blogs" });
+
+        var safeLimit = Math.Clamp(limit, 1, 100);
+
+        var blogs = await dbContext.Blogs
+            .AsNoTracking()
+            .Where(x => x.AuthorId == user.Id)
+            .OrderByDescending(x => x.UpdatedAt)
+            .Take(safeLimit)
+            .Select(x => new BlogCardDto(
+                x.BlogId,
+                x.Title,
+                x.Description,
+                blogLogicService.SplitTags(x.TagsCsv),
+                user.FullName,
+                user.Username,
+                user.ProfileImage,
+                x.PublishedAt,
+                x.TotalComments,
+                x.TotalReactions,
+                x.TotalReads
+            ))
+            .ToListAsync();
+
+        return Ok(new { blogs });
+    }
+
+    [Authorize]
+    [HttpGet("{blogId}/edit")]
+    public async Task<ActionResult<object>> GetBlogForEdit(string blogId)
+    {
+        var user = await ResolveUser();
+        if (user is null) return Unauthorized(new { error = "Unauthorized" });
+
+        var blog = await dbContext.Blogs
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.BlogId == blogId);
+
+        if (blog is null)
+        {
+            return NotFound(new { error = "Blog not found" });
+        }
+
+        if (!blogLogicService.CanMutateBlog(user, blog))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = "You can only edit your own admin articles" });
+        }
+
+        return Ok(new
+        {
+            blog = new
+            {
+                blog.BlogId,
+                blog.Title,
+                description = blog.Description,
+                content = blog.Content,
+                contentBlocks = blogLogicService.DeserializeContentBlocks(blog.ContentBlocksJson, blog.Content),
+                banner = blog.Banner,
+                tags = blogLogicService.SplitTags(blog.TagsCsv),
+                blog.Draft,
+                blog.PublishedAt,
+                blog.UpdatedAt
+            }
+        });
+    }
 
     [HttpGet]
     public async Task<ActionResult<object>> GetBlogs([FromQuery] int limit = 20)
@@ -28,7 +101,7 @@ public sealed class BlogsController(AppDbContext dbContext) : ControllerBase
                 x.BlogId,
                 x.Title,
                 x.Description,
-                SplitTags(x.TagsCsv),
+                blogLogicService.SplitTags(x.TagsCsv),
                 x.Author.FullName,
                 x.Author.Username,
                 x.Author.ProfileImage,
@@ -59,9 +132,10 @@ public sealed class BlogsController(AppDbContext dbContext) : ControllerBase
             .Where(x => x.Id == blog.Id)
             .ExecuteUpdateAsync(updates => updates.SetProperty(x => x.TotalReads, x => x.TotalReads + 1));
 
-        var tags = SplitTags(blog.TagsCsv);
+        var tags = blogLogicService.SplitTags(blog.TagsCsv);
         var similarBlogs = await dbContext.Blogs
             .AsNoTracking()
+            .Include(x => x.Author)
             .Where(x => !x.Draft && x.Id != blog.Id)
             .OrderByDescending(x => x.PublishedAt)
             .Select(x => new
@@ -70,20 +144,32 @@ public sealed class BlogsController(AppDbContext dbContext) : ControllerBase
                 x.Title,
                 x.Description,
                 x.TagsCsv,
-                x.PublishedAt
+                x.PublishedAt,
+                x.TotalComments,
+                x.TotalReactions,
+                x.TotalReads,
+                AuthorName = x.Author.FullName,
+                AuthorUsername = x.Author.Username,
+                AuthorImage = x.Author.ProfileImage
             })
             .ToListAsync();
 
         var filteredSimilar = similarBlogs
-            .Where(x => SplitTags(x.TagsCsv).Intersect(tags).Any())
+            .Where(x => blogLogicService.SplitTags(x.TagsCsv).Intersect(tags).Any())
             .Take(6)
             .Select(x => new
             {
                 x.BlogId,
                 x.Title,
                 x.Description,
-                tags = SplitTags(x.TagsCsv),
-                x.PublishedAt
+                tags = blogLogicService.SplitTags(x.TagsCsv),
+                x.PublishedAt,
+                x.TotalComments,
+                x.TotalReactions,
+                x.TotalReads,
+                x.AuthorName,
+                x.AuthorUsername,
+                x.AuthorImage
             })
             .ToList();
 
@@ -95,6 +181,7 @@ public sealed class BlogsController(AppDbContext dbContext) : ControllerBase
                 blog.Title,
                 description = blog.Description,
                 content = blog.Content,
+                contentBlocks = blogLogicService.DeserializeContentBlocks(blog.ContentBlocksJson, blog.Content),
                 banner = blog.Banner,
                 tags,
                 blog.PublishedAt,
@@ -118,23 +205,18 @@ public sealed class BlogsController(AppDbContext dbContext) : ControllerBase
     {
         var user = await ResolveUser();
         if (user is null) return Unauthorized(new { error = "Unauthorized" });
-        if (!user.IsAdmin) return Forbid();
+        if (!user.IsAdmin) return StatusCode(StatusCodes.Status403Forbidden, new { error = "Only administrators can create blogs" });
 
         if (!request.Draft &&
             (string.IsNullOrWhiteSpace(request.Title) ||
              string.IsNullOrWhiteSpace(request.Description) ||
-             string.IsNullOrWhiteSpace(request.Content)))
+             (!blogLogicService.HasBlockContent(request.ContentBlocks) && string.IsNullOrWhiteSpace(request.Content))))
         {
             return BadRequest(new { error = "Title, description and content are required" });
         }
 
-        var tags = NormalizeTags(request.Tags);
-        var slugBase = string.Join('-', request.Title
-            .ToLowerInvariant()
-            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-            .Select(OnlySlugChars)
-            .Where(x => x.Length > 0));
-        if (string.IsNullOrWhiteSpace(slugBase)) slugBase = "untitled";
+        var tags = blogLogicService.NormalizeTags(request.Tags);
+        var slugBase = blogLogicService.BuildSlugBase(request.Title);
 
         var blog = new BlogPost
         {
@@ -143,6 +225,7 @@ public sealed class BlogsController(AppDbContext dbContext) : ControllerBase
             Title = request.Title.Trim(),
             Description = request.Description.Trim(),
             Content = request.Content,
+            ContentBlocksJson = blogLogicService.SerializeContentBlocks(request.ContentBlocks, request.Content),
             Banner = request.Banner?.Trim() ?? string.Empty,
             TagsCsv = string.Join(',', tags),
             Draft = request.Draft,
@@ -163,16 +246,18 @@ public sealed class BlogsController(AppDbContext dbContext) : ControllerBase
     {
         var user = await ResolveUser();
         if (user is null) return Unauthorized(new { error = "Unauthorized" });
-        if (!user.IsAdmin) return Forbid();
 
         var blog = await dbContext.Blogs.FirstOrDefaultAsync(x => x.BlogId == blogId);
         if (blog is null) return NotFound(new { error = "Blog not found" });
+        if (!blogLogicService.CanMutateBlog(user, blog))
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = "You can only update your own admin articles" });
 
         blog.Title = request.Title.Trim();
         blog.Description = request.Description.Trim();
         blog.Content = request.Content;
+        blog.ContentBlocksJson = blogLogicService.SerializeContentBlocks(request.ContentBlocks, request.Content);
         blog.Banner = request.Banner?.Trim() ?? string.Empty;
-        blog.TagsCsv = string.Join(',', NormalizeTags(request.Tags));
+        blog.TagsCsv = string.Join(',', blogLogicService.NormalizeTags(request.Tags));
         blog.Draft = request.Draft;
         blog.UpdatedAt = DateTime.UtcNow;
 
@@ -186,10 +271,11 @@ public sealed class BlogsController(AppDbContext dbContext) : ControllerBase
     {
         var user = await ResolveUser();
         if (user is null) return Unauthorized(new { error = "Unauthorized" });
-        if (!user.IsAdmin) return Forbid();
 
         var blog = await dbContext.Blogs.FirstOrDefaultAsync(x => x.BlogId == blogId);
         if (blog is null) return NotFound(new { error = "Blog not found" });
+        if (!blogLogicService.CanMutateBlog(user, blog))
+            return StatusCode(StatusCodes.Status403Forbidden, new { error = "You can only delete your own admin articles" });
 
         dbContext.Blogs.Remove(blog);
         await dbContext.SaveChangesAsync();
@@ -337,29 +423,4 @@ public sealed class BlogsController(AppDbContext dbContext) : ControllerBase
         return await dbContext.Users.FirstOrDefaultAsync(x => x.Id == userId);
     }
 
-    private static string[] NormalizeTags(string[] tags)
-    {
-        return tags
-            .Select(x => x.Trim().ToLowerInvariant())
-            .Where(x => !string.IsNullOrWhiteSpace(x))
-            .Distinct()
-            .Take(8)
-            .ToArray();
-    }
-
-    private static string[] SplitTags(string tagsCsv)
-    {
-        if (string.IsNullOrWhiteSpace(tagsCsv)) return [];
-        return tagsCsv
-            .Split(',', StringSplitOptions.RemoveEmptyEntries)
-            .Select(x => x.Trim())
-            .Where(x => x.Length > 0)
-            .ToArray();
-    }
-
-    private static string OnlySlugChars(string value)
-    {
-        var chars = value.Where(char.IsLetterOrDigit).ToArray();
-        return new string(chars);
-    }
 }

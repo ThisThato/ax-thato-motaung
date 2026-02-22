@@ -3,6 +3,7 @@
 ## Scope of This Document
 
 This document captures:
+
 - What was implemented in this session (primarily UI + mock-mode behavior)
 - What the current ASP.NET + PostgreSQL API already supports
 - What still needs to be implemented/changed in API contracts so UI can move from mock storage to real backend persistence
@@ -12,6 +13,7 @@ This document captures:
 ## 1) Work Completed in This Session (UI/Mock Layer)
 
 ### A. Home/Discovery Experience
+
 - Reworked home into a modern discovery layout:
   - Featured article section
   - Search + topic chips
@@ -23,12 +25,14 @@ This document captures:
   - URL-backed state (`tab`, `q`, `tag`, `view`) for shareable navigation
 
 ### B. Theme + Navigation
+
 - Implemented global night mode with persistence
 - Set night mode as default for first-time users
 - Added navbar theme toggle
 - Synced navbar search input with URL query (`q`) so it reflects active filter state
 
 ### C. Auth/Role UX Rules
+
 - Added logged-in user view page (`/me`) for admin users
 - Enforced role behavior in UI:
   - Non-admin users are read/comment/react/share only
@@ -36,6 +40,7 @@ This document captures:
 - Added non-admin `Reader mode` badge in navbar
 
 ### D. Article Authoring + Reading
+
 - Implemented proper block-based content model in UI:
   - `paragraph` block
   - `image` block
@@ -46,6 +51,7 @@ This document captures:
 - Added interleaving migration logic so old posts do not force images to the end
 
 ### E. Interaction UX
+
 - Added toast feedback for:
   - reaction toggle
   - posting comments
@@ -54,10 +60,12 @@ This document captures:
 - Adjusted snippet code typography to IDE-like monospace and smaller size (~12px)
 
 ### F. Reading Comfort Updates
+
 - Reduced visual intensity on blog detail page
 - Narrowed reading column and softened typography for book-like readability
 
 ### G. Metrics Visibility
+
 - Hid reads/comments/reactions counts from UI surfaces (temporarily)
 - Data still exists in mock/API models; only presentation removed
 
@@ -66,6 +74,7 @@ This document captures:
 ## 2) Current API Surface (Observed)
 
 ### Existing endpoints (implemented)
+
 - `POST /api/auth/signup`
 - `POST /api/auth/signin`
 - `GET /api/auth/me`
@@ -80,6 +89,7 @@ This document captures:
 - `POST /api/blogs/{blogId}/reactions` (auth)
 
 ### Current limitations relative to UI
+
 - Blog contracts currently store/surface `Content` as string, not structured `contentBlocks`
 - Blog contracts do not expose inline `images` and `codeSnippets` arrays as UI now expects
 - No endpoint for “my blogs” manage view (`/manage-blogs` parity)
@@ -91,22 +101,23 @@ This document captures:
 ## 3) Feature-to-API Cross-Reference
 
 ## Legend
+
 - UI Status: `Done (Mock)` means implemented in frontend with local/mock data
 - API Status: `Ready`, `Partial`, or `Missing`
 
-| Feature | UI Status | API Status | API Work Required |
-|---|---|---|---|
-| Home feed + tabs + filters | Done (Mock) | Partial | Add query support on `GET /api/blogs` for `q`, `tag`, `sort`, pagination. |
-| Featured + similar topics | Done (Mock) | Partial | Return similar posts in full card shape (author/date/tag metadata) and rank by overlap. |
-| Blog detail reading | Done (Mock) | Partial | Extend detail response to include `contentBlocks`, inline image/code data. |
-| Block-based editor (image anywhere) | Done (Mock) | Missing | Extend create/update contracts to accept `contentBlocks[]`; persist JSON in DB. |
-| Manage own posts | Done (Mock) | Missing | Add `GET /api/blogs/mine` (auth) with owner/admin constraints. |
-| Edit existing post load | Done (Mock) | Missing | Add `GET /api/blogs/{blogId}/edit` or equivalent owner/admin-safe detail endpoint. |
-| Comments | Done (Mock) | Ready | Wire UI to existing comments endpoints. |
-| Reactions | Done (Mock) | Ready | Wire UI to existing reactions endpoints. |
-| Share actions | Done (UI) | N/A | No API dependency required. |
-| Role restrictions (reader/admin) | Done (UI+Mock) | Partial | Return proper `403` payloads and enforce owner checks server-side. |
-| Copy code snippet | Done (UI) | N/A | No API dependency required. |
+| Feature                             | UI Status      | API Status | API Work Required                                                                       |
+| ----------------------------------- | -------------- | ---------- | --------------------------------------------------------------------------------------- |
+| Home feed + tabs + filters          | Done (Mock)    | Partial    | Add query support on `GET /api/blogs` for `q`, `tag`, `sort`, pagination.               |
+| Featured + similar topics           | Done (Mock)    | Partial    | Return similar posts in full card shape (author/date/tag metadata) and rank by overlap. |
+| Blog detail reading                 | Done (Mock)    | Partial    | Extend detail response to include `contentBlocks`, inline image/code data.              |
+| Block-based editor (image anywhere) | Done (Mock)    | Missing    | Extend create/update contracts to accept `contentBlocks[]`; persist JSON in DB.         |
+| Manage own posts                    | Done (Mock)    | Missing    | Add `GET /api/blogs/mine` (auth) with owner/admin constraints.                          |
+| Edit existing post load             | Done (Mock)    | Missing    | Add `GET /api/blogs/{blogId}/edit` or equivalent owner/admin-safe detail endpoint.      |
+| Comments                            | Done (Mock)    | Ready      | Wire UI to existing comments endpoints.                                                 |
+| Reactions                           | Done (Mock)    | Ready      | Wire UI to existing reactions endpoints.                                                |
+| Share actions                       | Done (UI)      | N/A        | No API dependency required.                                                             |
+| Role restrictions (reader/admin)    | Done (UI+Mock) | Partial    | Return proper `403` payloads and enforce owner checks server-side.                      |
+| Copy code snippet                   | Done (UI)      | N/A        | No API dependency required.                                                             |
 
 ---
 
@@ -188,6 +199,7 @@ This document captures:
 ## 7) Migration Note
 
 Current UI still works in mock mode with legacy fallback behavior. Once API contract parity is complete, swap `mockContentApi` calls to real `api` calls in:
+
 - home page
 - blog page
 - editor page

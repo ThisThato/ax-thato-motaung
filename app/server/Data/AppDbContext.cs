@@ -30,6 +30,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             entity.Property(x => x.Title).HasMaxLength(240);
             entity.Property(x => x.Description).HasMaxLength(400);
             entity.Property(x => x.TagsCsv).HasMaxLength(1000);
+            entity.Property(x => x.ContentBlocksJson)
+                .HasColumnType("jsonb")
+                .HasDefaultValueSql("'[]'::jsonb");
             entity.HasOne(x => x.Author)
                 .WithMany(x => x.Blogs)
                 .HasForeignKey(x => x.AuthorId)

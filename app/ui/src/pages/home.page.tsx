@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 import Loader from "../components/loader.component";
 import type { BlogCard } from "../types";
-import { mockContentApi } from "../common/mock-content-api";
+import api from "../common/api";
 import AboutMe from "../components/about-me.component";
 
 type FeedTab = "latest" | "trending" | "picks";
@@ -62,8 +62,10 @@ const HomePage = () => {
     useEffect(() => {
         const run = async () => {
             try {
-                const data = await mockContentApi.listBlogs();
-                setBlogs(data);
+                const { data } = await api.get<{ blogs: BlogCard[] }>("/blogs");
+                setBlogs(data.blogs || []);
+            } catch {
+                setBlogs([]);
             } finally {
                 setLoading(false);
             }

@@ -3,7 +3,7 @@ import { Link, Navigate } from "react-router-dom";
 import { AuthContext } from "../App";
 import Loader from "../components/loader.component";
 import BackNav from "../components/back-nav.component";
-import { mockContentApi } from "../common/mock-content-api";
+import api from "../common/api";
 import type { BlogCard } from "../types";
 
 const MePage = () => {
@@ -14,8 +14,8 @@ const MePage = () => {
     useEffect(() => {
         const run = async () => {
             try {
-                const mine = await mockContentApi.listManageBlogs();
-                setBlogs(mine);
+                const { data } = await api.get<{ blogs: BlogCard[] }>("/blogs/mine");
+                setBlogs(data.blogs || []);
             } finally {
                 setLoading(false);
             }

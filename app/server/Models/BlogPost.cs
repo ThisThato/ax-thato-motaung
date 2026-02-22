@@ -7,6 +7,7 @@ public sealed class BlogPost
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string Content { get; set; } = "[]";
+    public string ContentBlocksJson { get; set; } = "[]";
     public string Banner { get; set; } = string.Empty;
     public string TagsCsv { get; set; } = string.Empty;
     public bool Draft { get; set; }

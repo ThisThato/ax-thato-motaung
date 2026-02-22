@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { mockContentApi } from "../common/mock-content-api";
+import api from "../common/api";
 import type { BlogCard } from "../types";
 import Loader from "../components/loader.component";
 import BackNav from "../components/back-nav.component";
@@ -14,10 +14,11 @@ const ManageBlogsPage = () => {
         setLoading(true);
         setError("");
         try {
-            const data = await mockContentApi.listManageBlogs();
-            setBlogs(data);
-        } catch (requestError) {
-            const message = requestError instanceof Error ? requestError.message : "Failed to load blogs";
+            const { data } = await api.get<{ blogs: BlogCard[] }>("/blogs/mine");
+            setBlogs(data.blogs || []);
+        } catch (requestError: unknown) {
+            const message = (requestError as { response?: { data?: { error?: string } } })
+                ?.response?.data?.error || (requestError instanceof Error ? requestError.message : "Failed to load blogs");
             setError(message);
         } finally {
             setLoading(false);
@@ -32,10 +33,11 @@ const ManageBlogsPage = () => {
         const accepted = window.confirm("Delete this article?");
         if (!accepted) return;
         try {
-            await mockContentApi.deleteBlog(blogId);
+            await api.delete(`/blogs/${blogId}`);
             await load();
-        } catch (requestError) {
-            const message = requestError instanceof Error ? requestError.message : "Failed to delete blog";
+        } catch (requestError: unknown) {
+            const message = (requestError as { response?: { data?: { error?: string } } })
+                ?.response?.data?.error || (requestError instanceof Error ? requestError.message : "Failed to delete blog");
             setError(message);
         }
     };

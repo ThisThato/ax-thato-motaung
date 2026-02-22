@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { mockContentApi } from "../common/mock-content-api";
+import api from "../common/api";
 import type { BlogEditorPayload, CodeSnippet, ContentBlock } from "../types";
 import BackNav from "../components/back-nav.component";
 import CodeSnippetBlock from "../components/code-snippet-block.component";
@@ -13,6 +13,18 @@ interface LocalEditorArticle {
     banner: string;
     tags: string;
     createdAt: string;
+}
+
+interface EditBlogResponse {
+    blog: {
+        blogId: string;
+        title: string;
+        description: string;
+        content: string;
+        contentBlocks: ContentBlock[];
+        banner: string;
+        tags: string[];
+    };
 }
 
 const blockId = () => `block-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -89,14 +101,17 @@ const EditorPage = () => {
         const run = async () => {
             if (!editBlogId) return;
             try {
-                const item = await mockContentApi.getBlogForEdit(editBlogId);
+                const { data } = await api.get<EditBlogResponse>(`/blogs/${editBlogId}/edit`);
+                const item = data.blog;
                 setTitle(item.title);
                 setDescription(item.description);
                 setContentBlocks(item.contentBlocks.length ? item.contentBlocks : fromLegacyContent(item.content));
                 setBanner(item.banner);
                 setTags(item.tags.join(", "));
-            } catch {
-                setError("Unable to load blog for editing");
+            } catch (requestError: unknown) {
+                const message = (requestError as { response?: { data?: { error?: string } } })
+                    ?.response?.data?.error || "Unable to load blog for editing";
+                setError(message);
             }
         };
         void run();
@@ -194,9 +209,9 @@ const EditorPage = () => {
             };
 
             if (editBlogId) {
-                await mockContentApi.updateBlog(editBlogId, payload);
+                await api.put(`/blogs/${editBlogId}`, payload);
             } else {
-                await mockContentApi.createBlog(payload);
+                await api.post("/blogs", payload);
             }
             navigate("/");
         } catch (requestError: unknown) {

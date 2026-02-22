@@ -6,9 +6,14 @@ import BackNav from "../components/back-nav.component";
 import CodeSnippetBlock from "../components/code-snippet-block.component";
 import { AuthContext } from "../App";
 import type { BlogCard, BlogDetail, CommentItem } from "../types";
-import { mockContentApi } from "../common/mock-content-api";
+import api from "../common/api";
 
 const EMOJIS = ["👍", "❤️", "😂", "🎉", "🔥", "👏"];
+
+interface BlogDetailResponse {
+    blog: BlogDetail;
+    similarBlogs: Array<Partial<BlogCard> & { blogId: string; title: string; description: string; tags?: string[]; publishedAt: string }>;
+}
 
 const BlogPage = () => {
     const { blogId } = useParams();
@@ -32,16 +37,28 @@ const BlogPage = () => {
         const run = async () => {
             try {
                 const [blogRes, commentRes, reactionRes] = await Promise.all([
-                    mockContentApi.getBlog(blogId),
-                    mockContentApi.getComments(blogId),
-                    mockContentApi.getReactions(blogId)
+                    api.get<BlogDetailResponse>(`/blogs/${blogId}`),
+                    api.get<{ comments: CommentItem[] }>(`/blogs/${blogId}/comments`),
+                    api.get<{ counts: Record<string, number>; userEmojis: string[] }>(`/blogs/${blogId}/reactions`)
                 ]);
 
-                setBlog(blogRes.blog);
-                setSimilarBlogs(blogRes.similarBlogs);
-                setComments(commentRes);
-                setCounts(reactionRes.counts || {});
-                setUserEmojis(reactionRes.userEmojis || []);
+                setBlog(blogRes.data.blog);
+                setSimilarBlogs((blogRes.data.similarBlogs || []).map((item) => ({
+                    blogId: item.blogId,
+                    title: item.title,
+                    description: item.description,
+                    tags: item.tags || [],
+                    authorName: item.authorName || "",
+                    authorUsername: item.authorUsername || "",
+                    authorImage: item.authorImage || "",
+                    publishedAt: item.publishedAt,
+                    totalComments: item.totalComments || 0,
+                    totalReactions: item.totalReactions || 0,
+                    totalReads: item.totalReads || 0
+                })));
+                setComments(commentRes.data.comments || []);
+                setCounts(reactionRes.data.counts || {});
+                setUserEmojis(reactionRes.data.userEmojis || []);
             } finally {
                 setLoading(false);
             }
@@ -57,7 +74,7 @@ const BlogPage = () => {
         }
 
         try {
-            const data = await mockContentApi.toggleReaction(blogId, emoji);
+            const { data } = await api.post<{ counts: Record<string, number> }>(`/blogs/${blogId}/reactions`, { emoji });
             const wasActive = userEmojis.includes(emoji);
             setCounts(data.counts || {});
 
@@ -82,9 +99,9 @@ const BlogPage = () => {
         }
 
         try {
-            await mockContentApi.addComment(blogId, commentText);
-            const data = await mockContentApi.getComments(blogId);
-            setComments(data);
+            await api.post(`/blogs/${blogId}/comments`, { comment: commentText });
+            const { data } = await api.get<{ comments: CommentItem[] }>(`/blogs/${blogId}/comments`);
+            setComments(data.comments || []);
             setCommentText("");
             toast.success("Comment posted");
         } catch {
