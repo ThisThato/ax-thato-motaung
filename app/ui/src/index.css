@@ -124,3 +124,83 @@
 .cdx-settings-button[data-tune='stretched'] {
   display: none;
 }
+
+html.theme-light {
+    color-scheme: light;
+}
+
+html.theme-dark {
+    color-scheme: dark;
+}
+
+html.theme-dark body {
+    background-color: #0f0f10;
+    color: #f3f3f3;
+}
+
+html.theme-dark .navbar {
+    background-color: #151516;
+    border-color: #2d2d30;
+}
+
+html.theme-dark .bg-white {
+    background-color: #151516 !important;
+}
+
+html.theme-dark .bg-grey,
+html.theme-dark .btn-light,
+html.theme-dark .tag {
+    background-color: #232326 !important;
+}
+
+html.theme-dark .btn-light,
+html.theme-dark .tag,
+html.theme-dark .text-black,
+html.theme-dark .input-box,
+html.theme-dark .link:hover,
+html.theme-dark .sidebar-link.active {
+    color: #f3f3f3 !important;
+}
+
+html.theme-dark .text-dark-grey {
+    color: #b8b8bb !important;
+}
+
+html.theme-dark .border-grey,
+html.theme-dark .navbar,
+html.theme-dark .input-box,
+html.theme-dark .sidebar-link.active,
+html.theme-dark .btn-light,
+html.theme-dark .tag {
+    border-color: #2d2d30 !important;
+}
+
+html.theme-dark .input-box {
+    background-color: #1a1a1d;
+}
+
+html.theme-dark .input-box::placeholder {
+    color: #b8b8bb;
+}
+
+html.theme-dark .link {
+    color: #c8c8cc;
+}
+
+html.theme-dark .link:hover,
+html.theme-dark .sidebar-link.active {
+    background-color: #232326 !important;
+}
+
+html.theme-dark .btn-dark {
+    background-color: #f3f3f3;
+    color: #111113;
+}
+
+html.theme-dark .btn-dark:hover {
+    opacity: 0.9;
+}
+
+html.theme-dark ::selection {
+    background-color: rgba(139, 70, 255, 0.45);
+}

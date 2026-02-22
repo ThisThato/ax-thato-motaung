@@ -1,6 +1,9 @@
+import headshotThato from "../imgs/Headshot_thato.png";
+
 export interface PortfolioProfile {
     fullName: string;
     headline: string;
+    profilePhoto: string;
     location: string;
     currentRole: string;
     summary: string;
@@ -12,9 +15,14 @@ export interface PortfolioProfile {
 
 const STORAGE_KEY = "apex_blog_portfolio_profile_v1";
 
+const defaultProfilePhoto = (fullName: string): string => {
+    return `https://api.dicebear.com/6.x/notionists-neutral/svg?seed=${encodeURIComponent(fullName || "thato")}`;
+};
+
 export const portfolioProfile: PortfolioProfile = {
     fullName: "Thato Kamogelo Motaung",
     headline: "Software Engineer at Investec",
+    profilePhoto: headshotThato,
     location: "City of Johannesburg, Gauteng, South Africa",
     currentRole: "Software Engineer · Investec · Full-time (Aug 2024 - Present)",
     summary: "I am a Software Engineer at Investec, specializing in building bank-grade, high-availability systems. My focus sits at the intersection of full-stack engineering and cloud platform delivery across Azure and AWS. I help teams move from hoping systems work to knowing they do through automation, observability, and resilient architecture.",
@@ -38,6 +46,9 @@ export const getPortfolioProfile = (): PortfolioProfile => {
         return {
             ...portfolioProfile,
             ...parsed,
+            profilePhoto: typeof parsed.profilePhoto === "string" && parsed.profilePhoto.trim()
+                ? parsed.profilePhoto
+                : defaultProfilePhoto((parsed.fullName as string) || portfolioProfile.fullName),
             skills: Array.isArray(parsed.skills) ? parsed.skills : portfolioProfile.skills,
             highlights: Array.isArray(parsed.highlights) ? parsed.highlights : portfolioProfile.highlights,
             github: typeof parsed.github === "string" && parsed.github.trim() ? parsed.github : portfolioProfile.github

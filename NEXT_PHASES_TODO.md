@@ -1,113 +1,109 @@
-# Apex Blog — Next Phases TODO
+# Apex Blog — Next Phases TODO (Synced)
 
-## Current Status (Based on Implemented Work)
+Aligned with [SESSION_WORK_API_CROSS_REFERENCE.md](SESSION_WORK_API_CROSS_REFERENCE.md).
 
-- [x] Phase 0 baseline (TSX app shell, routing, session, responsive foundations)
-- [x] Phase 1 reading UX (home feed, article page, tags, similar-topic links)
-- [~] Phase 2 lifecycle (create flow exists in mock UI; update/delete + backend integration pending)
-- [~] Phase 4 interaction (comments + emoji reactions exist in mock/local mode; server persistence pending)
-- [ ] Phase 3 sharing capability
-- [ ] Phase 5 hardening and deployment quality gates
+## Current Status
+
+- [x] Phase 0 baseline (TSX shell, routes, session, responsive layout)
+- [x] Phase 1 reading UX (modern home, featured, tabs, related topics)
+- [~] Phase 2 lifecycle (UI complete in mock mode; API parity/wiring pending)
+- [x] Phase 3 sharing UX (copy/native/social share actions + toasts)
+- [~] Phase 4 interaction (comments/reactions UI complete; API wiring pending)
+- [ ] Phase 5 hardening/deploy quality gates
 
 ---
 
-## Phase 2 — Complete Real Blog Lifecycle (Next)
+## Completed in UI (Reference)
 
-### API + Database Integration
+- [x] Block-based editor (`paragraph`, `image`, `code`) with inline image placement
+- [x] Block-based article rendering on blog detail
+- [x] Home hybrid mode: curated feed + `View all results`
+- [x] Night mode default + toggle + persistence
+- [x] Non-admin reader-mode restrictions in routes/nav
+- [x] Code snippet copy button + toast
+- [x] Metrics hidden from UI presentation (reads/comments/reactions)
 
-- [ ] Connect UI data layer from mock API to ASP.NET API endpoints
-- [ ] Map article model parity: content, images, code snippets, tags, metadata
-- [ ] Implement Update Blog endpoint wiring in UI
-- [ ] Implement Delete Blog endpoint wiring in UI
-- [ ] Add owner-only authorization checks end-to-end
+---
 
-### UI Work
+## P0 — API Contract Parity (Do Next)
 
-- [ ] Add Manage Blogs page (list own posts)
-- [ ] Add Edit action from Manage Blogs to Editor page
-- [ ] Add Delete action with confirmation
-- [ ] Add optimistic/error UI states for save/update/delete
+### Blog Content Model
+- [ ] Extend `CreateBlogRequest` and `UpdateBlogRequest` to include `contentBlocks`
+- [ ] Persist `contentBlocks` JSON (or normalized block table)
+- [ ] Return `contentBlocks` from `GET /api/blogs/{blogId}`
+
+### Manage/Edit APIs
+- [ ] Add `GET /api/blogs/mine` for manage page (auth)
+- [ ] Add editor-prefill endpoint parity (`GET /api/blogs/{blogId}/edit`) or equivalent secure detail
+
+### Ownership Rules
+- [ ] Enforce author ownership (`AuthorId == current user`) on update/delete (in addition to role)
+- [ ] Return clear `403` error payloads consumed by UI
 
 ### Exit Criteria
-
-- [ ] Create, update, delete works with PostgreSQL persistence
-- [ ] Unauthorized edit/delete returns 403 and is handled in UI
+- [ ] Editor + manage pages can run fully against API with no mock fallback
 
 ---
 
-## Phase 3 — Sharing Capability
+## P1 — UI Data Source Switch (Mock → API)
 
-### Core Sharing
-
-- [ ] Add Copy Link button on article page
-- [ ] Add native Web Share fallback (`navigator.share`) when available
-- [ ] Add social share links (LinkedIn, X, Facebook, WhatsApp, Email)
-
-### UX
-
-- [ ] Add success toast/feedback for copy/share actions
-- [ ] Add share actions on both article page and feed cards
+- [ ] Replace `mockContentApi.listBlogs/getBlog` with API calls in home/blog pages
+- [ ] Replace editor create/update/get-for-edit flows with API
+- [ ] Replace manage list/delete flows with API
+- [ ] Keep current toasts/error states while swapping data source
 
 ### Exit Criteria
-
-- [ ] Users can share from mobile and desktop in <= 2 clicks
+- [ ] Post create/edit/delete/read persists in PostgreSQL and survives refresh/restart
 
 ---
 
-## Phase 4 — Move Interaction From Mock to API
+## P2 — Interaction Persistence via API
 
 ### Comments
-
-- [ ] Persist comments through ASP.NET API
-- [ ] Keep current UI but switch data source from local storage to API
-- [ ] Add loading/error empty states for comments section
+- [ ] Wire blog comments section to `GET/POST /api/blogs/{blogId}/comments`
+- [ ] Ensure UI handles loading/empty/error states from server responses
 
 ### Reactions
-
-- [ ] Persist emoji reaction toggles via API
-- [ ] Sync per-user selected emojis from JWT-authenticated user state
-- [ ] Keep counts consistent between page reloads
+- [ ] Wire emoji reactions to `GET/POST /api/blogs/{blogId}/reactions`
+- [ ] Keep per-user selection state synced from JWT-authenticated user
 
 ### Exit Criteria
-
-- [ ] Reactions/comments survive refresh and new sessions
+- [ ] Comments/reactions persist across sessions and devices
 
 ---
 
-## Phase 5 — Hardening + Deploy Readiness
+## P3 — Feed Query/Ranking Improvements (API)
 
-### Security & Stability
-
-- [ ] Add request validation for all create/update/comment/reaction endpoints
-- [ ] Add basic rate-limiting on write endpoints
-- [ ] Add safe error boundaries and user-facing failure states
-- [ ] Add audit logging for failed auth and write operations
-
-### Performance & Accessibility
-
-- [ ] Image size guardrails/compression strategy
-- [ ] Lazy loading for article images
-- [ ] Keyboard accessibility pass for editor and about section forms
-- [ ] Mobile QA at 320px/375px/768px breakpoints
-
-### CI/CD + Ops
-
-- [ ] Add UI `.env.example` and API config example files
-- [ ] Add build + typecheck + backend build pipeline
-- [ ] Add production deploy config (domain, HTTPS, env vars)
-- [ ] Add health checks and post-deploy smoke checklist
-
-### Exit Criteria
-
-- [ ] Repeatable deployment pipeline succeeds
-- [ ] Core journeys validated in production-like environment
+- [ ] Add query params to `GET /api/blogs` for `q`, `tag`, `sort`, pagination
+- [ ] Improve similar-topic ranking by shared tag overlap + recency
+- [ ] Keep card payload shape consistent with UI `BlogCard`
 
 ---
 
-## Immediate Sprint Plan (Recommended Order)
+## P4 — Hardening & Deploy Readiness
 
-1. [ ] Wire UI to API for create/read first (replace mock reads/writes)
-2. [ ] Implement manage/edit/delete flows
-3. [ ] Add sharing buttons and copy-link
-4. [ ] Move comments/reactions to API persistence
-5. [ ] Final hardening and deploy checklist run
+### Security/Stability
+- [ ] Add stronger request validation for blog/comment/reaction write endpoints
+- [ ] Add write rate-limiting for abuse prevention
+- [ ] Add consistent structured error responses
+
+### Performance/Accessibility
+- [ ] Add image size/compression guardrails
+- [ ] Add lazy loading strategy for large article images
+- [ ] Run keyboard + screen-reader checks on editor/blog pages
+
+### CI/CD & Operations
+- [ ] Add UI/API `.env.example` files
+- [ ] Add CI pipeline: UI typecheck/build + API build/test
+- [ ] Add deploy checklist + health verification flow
+
+---
+
+## Recommended Execution Order
+
+1. [ ] API `contentBlocks` contract + detail response parity
+2. [ ] `/blogs/mine` + owner-enforced update/delete
+3. [ ] Switch UI data source from mock to API
+4. [ ] Wire comments/reactions persistence
+5. [ ] Add feed query/similar-ranking improvements
+6. [ ] Hardening + deployment checklist

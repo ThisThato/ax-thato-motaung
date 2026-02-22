@@ -31,11 +31,31 @@ export interface CodeSnippet {
     code: string;
 }
 
+export type ContentBlock =
+    | {
+        id: string;
+        type: "paragraph";
+        text: string;
+    }
+    | {
+        id: string;
+        type: "image";
+        src: string;
+        alt: string;
+    }
+    | {
+        id: string;
+        type: "code";
+        language: string;
+        code: string;
+    };
+
 export interface BlogDetail {
     blogId: string;
     title: string;
     description: string;
     content: string;
+    contentBlocks: ContentBlock[];
     banner: string;
     images: string[];
     codeSnippets: CodeSnippet[];
@@ -60,4 +80,16 @@ export interface CommentItem {
         username: string;
         profileImage: string;
     };
+}
+
+export interface BlogEditorPayload {
+    title: string;
+    description: string;
+    content: string;
+    contentBlocks: ContentBlock[];
+    banner: string;
+    images: string[];
+    codeSnippets: CodeSnippet[];
+    tags: string[];
+    draft: boolean;
 }
