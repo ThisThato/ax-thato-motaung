@@ -1,5 +1,6 @@
 # Node.js
 node_modules/
+app/ui/node_modules/
 
 # Logs
 logs/
@@ -15,6 +16,9 @@ Thumbs.db
 # Build output
 dist/
 build/
+app/ui/dist/
+app/server/bin/
+app/server/obj/
 
 # IDE files
 .idea/
@@ -23,6 +27,8 @@ build/
 # Environment variables
 .env
 .env.local
+.env.*
+app/server/appsettings.Local.json
 
 # Miscellaneous
 *.swp

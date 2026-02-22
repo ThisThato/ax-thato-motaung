@@ -1,0 +1,26 @@
+# Build outputs
+bin/
+obj/
+out/
+
+# User and IDE files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Logs
+*.log
+
+# Environment and secrets
+.env
+.env.*
+appsettings.Local.json
+
+# Entity Framework generated artifacts (optional local use)
+Migrations/
+
+# OS files
+.DS_Store
+Thumbs.db
