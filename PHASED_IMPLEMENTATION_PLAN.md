@@ -241,9 +241,15 @@ Stabilize for reliable usage.
 
 ## Tracking Checklist
 
-- [ ] Phase 0 complete
-- [ ] Phase 1 complete
-- [ ] Phase 2 complete
+- [x] Phase 0 complete
+- [x] Phase 1 complete
+- [~] Phase 2 in progress (create flow in mock UI done; update/delete + API wiring pending)
 - [ ] Phase 3 complete
-- [ ] Phase 4 complete
+- [~] Phase 4 in progress (comments/reactions in mock mode done; API persistence pending)
 - [ ] Phase 5 complete
+
+## Synced Status Notes
+
+- This tracking is synchronized with `NEXT_PHASES_TODO.md`.
+- Current implementation has completed baseline + reading experience in TSX UI.
+- Next active milestone is finishing real CRUD and moving interaction from mock storage to ASP.NET + PostgreSQL persistence.
