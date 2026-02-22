@@ -1,5 +1,6 @@
 import { useContext, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
 import InputBox from "../components/input.component";
 import GoogleIcon from "../imgs/google.png";
 import AnimationWrapper from "../common/page-animation";
@@ -15,8 +16,32 @@ const UserAuthForm = ({ type }: UserAuthFormProps) => {
     const [form, setForm] = useState({ fullName: "", email: "", password: "" });
     const [error, setError] = useState("");
     const [loading, setLoading] = useState(false);
+    const [googleLoading, setGoogleLoading] = useState(false);
     const navigate = useNavigate();
     const { signIn } = useContext(AuthContext);
+    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+    const handleGoogleSuccess = async (credentialResponse: CredentialResponse) => {
+        const idToken = credentialResponse.credential;
+        if (!idToken) {
+            setError("Google sign-in did not return a token");
+            return;
+        }
+
+        setError("");
+        setGoogleLoading(true);
+        try {
+            const { data } = await api.post<AuthSession>("/auth/google", { idToken });
+            signIn(data);
+            navigate("/");
+        } catch (requestError: unknown) {
+            const message = (requestError as { response?: { data?: { error?: string } } })
+                ?.response?.data?.error || "Google authentication failed";
+            setError(message);
+        } finally {
+            setGoogleLoading(false);
+        }
+    };
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -88,10 +113,25 @@ const UserAuthForm = ({ type }: UserAuthFormProps) => {
                         <hr className="w-1/2 border-black" />
                     </div>
 
-                    <button className="btn-dark flex items-center justify-center gap-4 w-[90%] center" type="button" disabled>
-                        <img src={GoogleIcon} className="w-5" alt="Google" />
-                        continue with google
-                    </button>
+                    {type === "sign-in" ? (
+                        googleClientId ? (
+                            <div className="w-[90%] center">
+                                <GoogleLogin
+                                    onSuccess={handleGoogleSuccess}
+                                    onError={() => setError("Google authentication failed")}
+                                    shape="pill"
+                                    width="100%"
+                                    text="signin_with"
+                                />
+                                {googleLoading ? <p className="text-dark-grey text-sm text-center mt-2">Signing you in with Google...</p> : null}
+                            </div>
+                        ) : (
+                            <button className="btn-dark flex items-center justify-center gap-4 w-[90%] center" type="button" disabled>
+                                <img src={GoogleIcon} className="w-5" alt="Google" />
+                                continue with google
+                            </button>
+                        )
+                    ) : null}
 
                     {type === "sign-in" ? (
                         <p className="mt-6 text-dark-grey text-xl text-center">

@@ -3,6 +3,7 @@ using ApexBlog.Api.Contracts;
 using ApexBlog.Api.Data;
 using ApexBlog.Api.Models;
 using ApexBlog.Api.Services;
+using Google.Apis.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -67,11 +68,87 @@ public sealed class AuthController(AppDbContext dbContext, JwtService jwtService
     [HttpPost("signin")]
     public async Task<ActionResult<AuthResponse>> SignIn([FromBody] SignInRequest request)
     {
+        if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+        {
+            return BadRequest(new { error = "Email and password are required" });
+        }
+
         var email = request.Email.Trim().ToLowerInvariant();
         var user = await dbContext.Users.FirstOrDefaultAsync(x => x.Email == email);
         if (user is null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
         {
             return Unauthorized(new { error = "Invalid credentials" });
+        }
+
+        return Ok(BuildAuthResponse(user));
+    }
+
+    [HttpPost("google")]
+    public async Task<ActionResult<AuthResponse>> GoogleSignIn([FromBody] GoogleSignInRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.IdToken))
+        {
+            return BadRequest(new { error = "Google token is required" });
+        }
+
+        var audiences = configuration.GetSection("GoogleAuth:AllowedClientIds").Get<string[]>()
+            ?.Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .ToArray() ?? [];
+
+        if (audiences.Length == 0)
+        {
+            return StatusCode(StatusCodes.Status500InternalServerError, new { error = "Google sign-in is not configured" });
+        }
+
+        GoogleJsonWebSignature.Payload payload;
+        try
+        {
+            payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken, new GoogleJsonWebSignature.ValidationSettings
+            {
+                Audience = audiences
+            });
+        }
+        catch (InvalidJwtException)
+        {
+            return Unauthorized(new { error = "Invalid Google token" });
+        }
+
+        if (string.IsNullOrWhiteSpace(payload.Email))
+        {
+            return Unauthorized(new { error = "Google account email is missing" });
+        }
+
+        var email = payload.Email.Trim().ToLowerInvariant();
+        var user = await dbContext.Users.FirstOrDefaultAsync(x => x.Email == email);
+
+        if (user is null)
+        {
+            var ownerEmail = configuration["OwnerEmail"]?.Trim().ToLowerInvariant();
+            var adminExists = await dbContext.Users.AnyAsync(x => x.IsAdmin);
+            var isAdmin = !string.IsNullOrWhiteSpace(ownerEmail)
+                ? email == ownerEmail
+                : !adminExists;
+
+            var fullName = string.IsNullOrWhiteSpace(payload.Name)
+                ? email.Split('@')[0]
+                : payload.Name.Trim();
+
+            user = new User
+            {
+                Id = Guid.NewGuid(),
+                FullName = fullName,
+                Email = email,
+                Username = await GenerateUniqueUsernameAsync(email),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N")),
+                IsAdmin = isAdmin,
+                ProfileImage = string.IsNullOrWhiteSpace(payload.Picture)
+                    ? $"https://api.dicebear.com/6.x/notionists-neutral/svg?seed={Uri.EscapeDataString(fullName)}"
+                    : payload.Picture
+            };
+
+            dbContext.Users.Add(user);
+            await dbContext.SaveChangesAsync();
         }
 
         return Ok(BuildAuthResponse(user));
@@ -100,6 +177,22 @@ public sealed class AuthController(AppDbContext dbContext, JwtService jwtService
     {
         var token = jwtService.CreateToken(user);
         return new AuthResponse(token, ToUserDto(user));
+    }
+
+    private async Task<string> GenerateUniqueUsernameAsync(string email)
+    {
+        var seed = new string(email.Split('@')[0].Where(char.IsLetterOrDigit).ToArray());
+        var baseUsername = string.IsNullOrWhiteSpace(seed) ? "user" : seed;
+        var username = baseUsername;
+        var attempt = 0;
+
+        while (await dbContext.Users.AnyAsync(x => x.Username == username))
+        {
+            attempt++;
+            username = $"{baseUsername}-{attempt:D2}";
+        }
+
+        return username;
     }
 
     private static UserDto ToUserDto(User user)

@@ -13,3 +13,4 @@ public sealed record UserDto(
 
 public sealed record SignUpRequest(string FullName, string Email, string Password);
 public sealed record SignInRequest(string Email, string Password);
+public sealed record GoogleSignInRequest(string IdToken);
